@@ -62,7 +62,7 @@ resource "azurerm_resource_group" "main" {
 # }
 
 module "storage_account_main" {
-  source = "Azure/avm-res-storage-storageaccount/azurerm"
+  source  = "Azure/avm-res-storage-storageaccount/azurerm"
   version = "0.6.4"
 
   location                 = azurerm_resource_group.main.location
@@ -73,11 +73,11 @@ module "storage_account_main" {
   account_tier             = "Standard"
 
   # Security settings
-  public_network_access_enabled   = false
+  public_network_access_enabled = false
   # allow_nested_items_to_be_public = false
-  shared_access_key_enabled       = true
-  https_traffic_only_enabled      = true
-  min_tls_version                 = "TLS1_2"
+  shared_access_key_enabled  = true
+  https_traffic_only_enabled = true
+  min_tls_version            = "TLS1_2"
 
   # Infrastructure encryption for production
   infrastructure_encryption_enabled = local.environment_config.is_production
