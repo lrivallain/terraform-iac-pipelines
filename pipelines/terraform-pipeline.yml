@@ -67,6 +67,7 @@ stages:
         workingDirectory: $(terraformWorkingDirectory)
         environmentServiceName: $(azureServiceConnection)
         commandOptions: '-out=tfplan -var="environment=dev"'
+        publishPlanResults: 'dev-tf-plan'
 
     # Publish Plan Artifact
     - task: PublishBuildArtifacts@1
