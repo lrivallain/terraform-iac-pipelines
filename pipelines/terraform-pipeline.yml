@@ -65,7 +65,12 @@ stages:
       inputs:
         command: 'plan'
         workingDirectory: $(terraformWorkingDirectory)
-        environmentServiceNameAzureRM: $(azureServiceConnection)
+        backendType: azurerm
+        backendServiceArm: $(azureServiceConnection)
+        backendAzureRmResourceGroupName: 'rg-terraform-state'
+        backendAzureRmStorageAccountName: 'sttfstate-$(Build.BuildId)'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: 'terraform.tfstate'
         commandOptions: '-out=tfplan -var="environment=dev"'
 
     # Publish Plan Artifact
