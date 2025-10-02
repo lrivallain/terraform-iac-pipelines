@@ -1,0 +1,77 @@
+# pipelines/basic-terraform-pipeline.yml
+trigger:
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    include:
+    - terraform/*
+    - pipelines/*
+
+variables:
+  terraformVersion: '1.5.7'
+  azureServiceConnection: 'azure-terraform-service-connection'
+  terraformWorkingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+- stage: TerraformValidation
+  displayName: 'Terraform Validation'
+  jobs:
+  - job: Validate
+    displayName: 'Validate Terraform Configuration'
+    steps:
+
+    # Install Terraform
+    - task: TerraformInstaller@0
+      displayName: 'Install Terraform $(terraformVersion)'
+      inputs:
+        terraformVersion: $(terraformVersion)
+
+    # Terraform Init
+    - task: TerraformTaskV2@2
+      displayName: 'Terraform Init'
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: $(terraformWorkingDirectory)
+        backendServiceArm: $(azureServiceConnection)
+        backendAzureRmResourceGroupName: 'rg-terraform-state'
+        backendAzureRmStorageAccountName: 'sttfstate-$(Build.BuildId)'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: 'terraform.tfstate'
+
+    # Terraform Validate
+    - task: TerraformTaskV2@2
+      displayName: 'Terraform Validate'
+      inputs:
+        provider: 'azurerm'
+        command: 'validate'
+        workingDirectory: $(terraformWorkingDirectory)
+
+    # Terraform Format Check
+    - script: |
+        terraform fmt -check=true -diff=true
+      displayName: 'Terraform Format Check'
+      workingDirectory: $(terraformWorkingDirectory)
+
+    # Terraform Plan
+    - task: TerraformTaskV2@2
+      displayName: 'Terraform Plan'
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: $(terraformWorkingDirectory)
+        environmentServiceNameAzureRM: $(azureServiceConnection)
+        commandOptions: '-out=tfplan -var="environment=dev"'
+
+    # Publish Plan Artifact
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Terraform Plan'
+      inputs:
+        PathtoPublish: '$(terraformWorkingDirectory)/tfplan'
+        ArtifactName: 'terraform-plan'
+        publishLocation: 'Container'
