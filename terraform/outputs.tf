@@ -24,6 +24,7 @@ output "storage_account_name" {
 output "storage_account_primary_endpoint" {
   description = "Primary blob endpoint of the storage account"
   value       = module.storage_account_main.resource.primary_blob_endpoint
+  sensitive   = true
 }
 
 output "storage_account_connection_string" {
@@ -123,4 +124,6 @@ output "deployment_summary" {
     unique_suffix = local.unique_suffix
     tags          = local.common_tags
   }
+
+  sensitive = true
 }
