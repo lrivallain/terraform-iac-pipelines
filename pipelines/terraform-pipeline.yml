@@ -59,20 +59,19 @@ stages:
         commandOptions: '-check=true -diff=true -recursive'
         workingDirectory: $(terraformWorkingDirectory)
 
-    # # Terraform Plan
-    # - task: TerraformTaskV2@2
-    #   displayName: 'Terraform Plan'
-    #   inputs:
-    #     provider: 'azurerm'
-    #     command: 'plan'
-    #     workingDirectory: $(terraformWorkingDirectory)
-    #     environmentServiceNameAzureRM: $(azureServiceConnection)
-    #     commandOptions: '-out=tfplan -var="environment=dev"'
+    # Terraform Plan
+    - task: TerraformCLI@1
+      displayName: 'Terraform Plan'
+      inputs:
+        command: 'plan'
+        workingDirectory: $(terraformWorkingDirectory)
+        environmentServiceNameAzureRM: $(azureServiceConnection)
+        commandOptions: '-out=tfplan -var="environment=dev"'
 
-    # # Publish Plan Artifact
-    # - task: PublishBuildArtifacts@1
-    #   displayName: 'Publish Terraform Plan'
-    #   inputs:
-    #     PathtoPublish: '$(terraformWorkingDirectory)/tfplan'
-    #     ArtifactName: 'terraform-plan'
-    #     publishLocation: 'Container'
+    # Publish Plan Artifact
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Terraform Plan'
+      inputs:
+        PathtoPublish: '$(terraformWorkingDirectory)/tfplan'
+        ArtifactName: 'terraform-plan'
+        publishLocation: 'Container'
