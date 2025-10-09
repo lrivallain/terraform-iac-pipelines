@@ -32,8 +32,9 @@ jobs:
 
     # Initialize a backend store for state management
     - name: Terraform Init with backend
-      run: terraform init \
-        -backend-config="storage_account_name=tfstates${{ env.RANDOM_SUFFIX }}" \
+      run: |
+      terraform init \
+        -backend-config="storage_account_name=tfstates${{ vars.RANDOM_SUFFIX }}" \
         -backend-config="container_name=iac-workshop-tfstates" \
         -backend-config="key=terraform-dev.tfstate" \
         -backend-config="resource_group_name=rg-terraform-state"
