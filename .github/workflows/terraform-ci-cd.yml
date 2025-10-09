@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  RANDOM_SUFFIX: 5d6b95
+  random_suffix: ${{ vars.RANDOM_SUFFIX }}
 
 
 permissions:
@@ -37,11 +37,11 @@ jobs:
     # Initialize a backend store for state management
     - name: Terraform Init with backend
       run: |
-      terraform init \
-        -backend-config="storage_account_name=tfstates$RANDOM_SUFFIX" \
-        -backend-config="container_name=iac-workshop-tfstates" \
-        -backend-config="key=terraform-dev.tfstate" \
-        -backend-config="resource_group_name=rg-terraform-state"
+        terraform init \
+          -backend-config="storage_account_name=tfstates${{ env.random_suffix }}" \
+          -backend-config="container_name=iac-workshop-tfstates" \
+          -backend-config="key=terraform-dev.tfstate" \
+          -backend-config="resource_group_name=rg-terraform-state"
       working-directory: ./terraform
 
     - name: Terraform Plan
