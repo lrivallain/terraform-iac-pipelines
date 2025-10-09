@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  RANDOM_SUFFIX: 5d6b95
+
+
 permissions:
   id-token: write   # Required for OIDC
   contents: read    # Required for checkout
@@ -34,7 +38,7 @@ jobs:
     - name: Terraform Init with backend
       run: |
       terraform init \
-        -backend-config="storage_account_name=tfstates${{ vars.RANDOM_SUFFIX }}" \
+        -backend-config="storage_account_name=tfstates${{ env.RANDOM_SUFFIX }}" \
         -backend-config="container_name=iac-workshop-tfstates" \
         -backend-config="key=terraform-dev.tfstate" \
         -backend-config="resource_group_name=rg-terraform-state"
