@@ -7,60 +7,6 @@ resource "azurerm_resource_group" "main" {
   tags = local.common_tags
 }
 
-# Storage Account
-# resource "azurerm_storage_account" "main" {
-#   name                = "st${replace(local.resource_prefix, "-", "")}${local.unique_suffix}"
-#   resource_group_name = azurerm_resource_group.main.name
-#   location            = azurerm_resource_group.main.location
-
-#   account_tier             = "Standard"
-#   account_replication_type = var.storage_replication_type
-#   account_kind             = "StorageV2"
-
-#   # Security settings
-#   public_network_access_enabled   = false
-#   allow_nested_items_to_be_public = false
-#   shared_access_key_enabled       = true
-#   https_traffic_only_enabled      = true
-#   min_tls_version                 = "TLS1_2"
-
-#   # Infrastructure encryption for production
-#   infrastructure_encryption_enabled = local.environment_config.is_production
-
-#   # Blob properties
-#   blob_properties {
-#     # Enable versioning
-#     versioning_enabled = true
-
-#     # Change feed for audit trail
-#     change_feed_enabled = local.environment_config.is_production
-
-#     # Retention policy
-#     delete_retention_policy {
-#       days = var.storage_blob_retention_days
-#     }
-
-#     # Container retention policy
-#     container_delete_retention_policy {
-#       days = var.storage_blob_retention_days
-#     }
-#   }
-
-#   Network rules (restrictive by default)
-#   network_rules {
-#     default_action = "Deny"
-#     ip_rules       = ["82.65.43.153"] # Add your IP addresses as needed
-
-#     # Allow access from the same virtual network (when implemented)
-#     virtual_network_subnet_ids = []
-#   }
-
-#   tags = merge(local.common_tags, {
-#     Component = "Storage"
-#     Service   = "DataStorage"
-#   })
-# }
-
 module "storage_account_main" {
   source  = "Azure/avm-res-storage-storageaccount/azurerm"
   version = "0.6.4"
@@ -346,7 +292,7 @@ resource "azurerm_key_vault" "main" {
 
   # Network access rules
   network_acls {
-    default_action = "Deny"
+    default_action = "Allow" # Change to "Deny" and configure exceptions in production
     bypass         = "AzureServices"
     ip_rules       = ["82.65.43.153"] # Add your IP addresses
   }
