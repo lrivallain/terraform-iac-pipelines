@@ -84,7 +84,7 @@ jobs:
       working-directory: ./terraform
 
     - name: Terraform Show
-      run: terraform show -no-color ./terraform/plan.tfout
+      run: terraform show -no-color ./plan.tfout
       working-directory: ./terraform
 
     - name: Save Plan as Artifact
