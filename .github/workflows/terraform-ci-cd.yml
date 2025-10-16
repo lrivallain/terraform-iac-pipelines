@@ -25,6 +25,16 @@ jobs:
       # with:
       #   terraform_version: 1.5.0    # It is recommended to pin to a specific version for production
 
+    # Initialize a backend store for state management
+    - name: Terraform Init with backend
+      run: |
+        terraform init \
+          -backend-config="storage_account_name=tfstates${{ vars.RANDOM_SUFFIX }}" \
+          -backend-config="container_name=iac-workshop-tfstates" \
+          -backend-config="key=terraform-dev.tfstate" \
+          -backend-config="resource_group_name=rg-terraform-state"
+      working-directory: ./terraform
+
     - name: Terraform Validate
       run: terraform validate
       working-directory: ./terraform
