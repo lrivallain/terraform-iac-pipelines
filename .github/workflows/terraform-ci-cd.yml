@@ -20,6 +20,27 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v5
 
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      # with:
+      #   terraform_version: 1.5.0    # It is recommended to pin to a specific version for production
+
+    - name: Terraform Validate
+      run: terraform validate
+      working-directory: ./terraform
+
+    - name: Terraform Format Check
+      run: terraform fmt -check=true -diff=true -recursive
+      working-directory: ./terraform
+
+  plan:
+    needs: validate
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+
     - name: Azure Login using OIDC
       uses: azure/login@v2
       with:
@@ -29,8 +50,6 @@ jobs:
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
-      # with:
-      #   terraform_version: 1.5.0    # It is recommended to pin to a specific version for production
 
     # Initialize a backend store for state management
     - name: Terraform Init with backend
@@ -40,14 +59,6 @@ jobs:
           -backend-config="container_name=iac-workshop-tfstates" \
           -backend-config="key=terraform-dev.tfstate" \
           -backend-config="resource_group_name=rg-terraform-state"
-      working-directory: ./terraform
-
-    - name: Terraform Validate
-      run: terraform validate
-      working-directory: ./terraform
-
-    - name: Terraform Format Check
-      run: terraform fmt -check=true -diff=true -recursive
       working-directory: ./terraform
 
     - name: Terraform Plan
@@ -63,12 +74,15 @@ jobs:
 
   # Job 2: Deploy to Development
   deploy:
-    needs: validate
+    needs: plan
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+
     - name: Download Plan Artifact
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v4
       with:
         name: tfplan
         path: ./terraform/plan.tfout
@@ -83,7 +97,17 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
 
+    # Initialize a backend store for state management
+    - name: Terraform Init with backend
+      run: |
+        terraform init \
+          -backend-config="storage_account_name=tfstates${{ vars.RANDOM_SUFFIX }}" \
+          -backend-config="container_name=iac-workshop-tfstates" \
+          -backend-config="key=terraform-dev.tfstate" \
+          -backend-config="resource_group_name=rg-terraform-state"
+      working-directory: ./terraform
+
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push' # Only apply on push to main branch
-      run: terraform apply -auto-approve -var-file="environments/dev/terraform.tfvars"
+      run: terraform apply -var-file="environments/dev/terraform.tfvars" plan.tfout
       working-directory: ./terraform
