@@ -2,7 +2,8 @@
 name: 'Terraform CI/CD (DISABLED)'
 
 # Disable all triggers by commenting out the 'on' section
-# on:
+on:
+  workflow_dispatch:  # Manual trigger only
 #   push:
 #     branches: [ main ]
 #   pull_request:
