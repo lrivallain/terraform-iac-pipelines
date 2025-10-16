@@ -1,11 +1,12 @@
 # .github/workflows/terraform-ci-cd.yml
-name: 'Terraform CI/CD'
+name: 'Terraform CI/CD (DISABLED)'
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+# Disable all triggers by commenting out the 'on' section
+# on:
+#   push:
+#     branches: [ main ]
+#   pull_request:
+#     branches: [ main ]
 
 permissions:
   id-token: write   # Required for OIDC
