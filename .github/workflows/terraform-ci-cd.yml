@@ -83,6 +83,10 @@ jobs:
       run: terraform plan -var-file="environments/dev/terraform.tfvars" -out=plan.tfout
       working-directory: ./terraform
 
+    - name: Terraform Show
+      run: terraform show -no-color ./terraform/plan.tfout
+      working-directory: ./terraform
+
     - name: Save Plan as Artifact
       uses: actions/upload-artifact@v4
       with:
