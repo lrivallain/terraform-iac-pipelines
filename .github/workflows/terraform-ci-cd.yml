@@ -63,7 +63,7 @@ jobs:
 
   # Job 2: Deploy to Development
   deploy:
-    needs: terraform
+    needs: validate
     runs-on: ubuntu-latest
 
     steps:
