@@ -12,7 +12,8 @@ permissions:
   contents: read    # Required for checkout
 
 jobs:
-  terraform:
+  # Job 1: Validate & Plan
+  validate:
     runs-on: ubuntu-latest
 
     steps:
@@ -45,9 +46,42 @@ jobs:
       run: terraform validate
       working-directory: ./terraform
 
-    - name: Terraform Plan
-      run: terraform plan -var-file="environments/dev/terraform.tfvars"
+    - name: Terraform Format Check
+      run: terraform fmt -check=true -diff=true -recursive
       working-directory: ./terraform
+
+    - name: Terraform Plan
+      run: terraform plan -var-file="environments/dev/terraform.tfvars" -out=plan.tfout
+      working-directory: ./terraform
+
+    - name: Save Plan as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: tfplan
+        path: ./terraform/plan.tfout
+        retention-days: 1
+
+  # Job 2: Deploy to Development
+  deploy:
+    needs: terraform
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download Plan Artifact
+      uses: actions/download-artifact@v5
+      with:
+        name: tfplan
+        path: ./terraform/plan.tfout
+
+    - name: Azure Login using OIDC
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
 
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push' # Only apply on push to main branch
