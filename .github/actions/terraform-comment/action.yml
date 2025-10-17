@@ -102,6 +102,8 @@ runs:
 
           try {
             const plan = fs.readFileSync('${{ inputs.working-directory }}/plan-summary.md', 'utf8');
+            const environment = '${{ inputs.environment }}';
+            const envName = environment === 'prod' ? 'Production' : 'Development';
 
             // Find existing comment
             const comments = await github.rest.issues.listComments({
@@ -112,7 +114,7 @@ runs:
 
             const existingComment = comments.data.find(comment =>
               comment.user.type === 'Bot' &&
-              comment.body.includes('${{ inputs.environment }}' === 'prod' ? 'Production' : 'Development')
+              comment.body.includes(envName)
             );
 
             if (existingComment) {
@@ -133,11 +135,14 @@ runs:
           } catch (error) {
             console.error('Error posting comment:', error);
 
+            const environment = '${{ inputs.environment }}';
+            const envName = environment === 'prod' ? 'Production' : 'Development';
+
             // Post error comment as fallback
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## ❌ ${{ inputs.environment === 'prod' ? 'Production' : 'Development' }} Plan Error\n\nFailed to generate plan summary. Check workflow logs for details.\n\n_Commit: ${context.sha.substring(0, 7)}_`
+              body: `## ❌ ${envName} Plan Error\n\nFailed to generate plan summary. Check workflow logs for details.\n\n_Commit: ${context.sha.substring(0, 7)}_`
             });
           }
