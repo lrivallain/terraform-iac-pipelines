@@ -50,59 +50,12 @@ runs:
       with:
         terraform_version: ${{ inputs.terraform-version }}
 
-    - name: Verify Azure Access
+    - name: Verify Azure Authentication
       shell: bash
       run: |
-        echo "Testing Azure access..."
-
-        # Test Azure CLI authentication
+        echo "Verifying Azure authentication..."
         az account show > /dev/null
-        echo "Azure CLI auth: OK"
-
-        # Test Key Vault access with better debugging
-        KV_NAME=$(az keyvault list --query "[?contains(name, 'webapp-${{ inputs.environment }}')].name" -o tsv | head -1)
-
-        if [ ! -z "$KV_NAME" ]; then
-          echo "Found Key Vault: $KV_NAME"
-
-          # Check permissions first
-          echo "Checking Key Vault permissions..."
-          CURRENT_USER=$(az account show --query user.name -o tsv)
-          echo "Current user: $CURRENT_USER"
-
-          # Try with verbose error output for first attempt
-          echo "Testing Key Vault access (attempt 1/3)..."
-          if az keyvault secret list --vault-name "$KV_NAME" --max-results 1 2>&1; then
-            echo "Key Vault access: OK"
-          else
-            echo "First attempt failed, checking access policies..."
-
-            # Check access policies
-            az keyvault show --name "$KV_NAME" --query "properties.accessPolicies[?objectId=='$(az ad signed-in-user show --query id -o tsv)']" -o table || echo "Could not check access policies"
-
-            # Retry with exponential backoff (2 more attempts)
-            for i in {2..3}; do
-              echo "Attempt $i/3 after $((i * 10)) seconds..."
-              sleep $((i * 10))
-
-              if az keyvault secret list --vault-name "$KV_NAME" --max-results 1 > /dev/null 2>&1; then
-                echo "Key Vault access: OK (attempt $i)"
-                break
-              elif [ $i -eq 3 ]; then
-                echo "Key Vault access failed after 3 attempts"
-                echo "This may be due to:"
-                echo "  - Missing access policies for the service principal"
-                echo "  - Network restrictions on the Key Vault"
-                echo "  - OIDC token timing issues"
-                echo ""
-                echo "Continuing anyway - Terraform will handle Key Vault access during plan/apply"
-                # Don't exit 1 here - let Terraform handle it
-              fi
-            done
-          fi
-        else
-          echo "No Key Vault found for environment '${{ inputs.environment }}' - skipping test"
-        fi
+        echo "Azure CLI authentication: OK"
 
     - name: Terraform Init with Backend
       shell: bash
