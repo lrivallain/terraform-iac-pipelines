@@ -9,8 +9,9 @@ on:
 
 
 permissions:
-  id-token: write
-  contents: read
+  id-token: write       # Required for OIDC
+  contents: read        # Required for checkout
+  pull-requests: write  # Required for PR comments (if using comment-plan job)
 
 env:
   TF_WORKING_DIR: './terraform'
