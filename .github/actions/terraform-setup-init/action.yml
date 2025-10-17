@@ -50,6 +50,13 @@ runs:
       with:
         terraform_version: ${{ inputs.terraform-version }}
 
+    - name: Verify Azure Authentication
+      shell: bash
+      run: |
+        echo "Verifying Azure authentication..."
+        az account show > /dev/null
+        echo "Azure CLI authentication: OK"
+
     - name: Terraform Init with Backend
       shell: bash
       run: |
