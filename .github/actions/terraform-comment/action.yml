@@ -22,20 +22,6 @@ inputs:
   storage-account-suffix:
     description: 'Random suffix for storage account name'
     required: true
-  comment-title:
-    description: 'Title for the comment (e.g., Development Environment Plan)'
-    required: true
-  comment-emoji:
-    description: 'Emoji for the comment title'
-    required: false
-    default: '🏗️'
-  deployment-type:
-    description: 'Deployment type description (e.g., Automatic upon merge)'
-    required: true
-  show-warning:
-    description: 'Whether to show production warning'
-    required: false
-    default: 'false'
   github-token:
     description: 'GitHub token for commenting'
     required: true
@@ -48,6 +34,7 @@ runs:
       with:
         name: tfplan-${{ inputs.environment }}
         path: ${{ inputs.working-directory }}/
+      continue-on-error: true
 
     - name: Setup Terraform and Init
       uses: ./.github/actions/terraform-setup-init
@@ -59,46 +46,51 @@ runs:
         environment: ${{ inputs.environment }}
         storage-account-suffix: ${{ inputs.storage-account-suffix }}
 
-    - name: Generate Plan Summary
+    - name: Generate Simple Plan Summary
       shell: bash
       run: |
-        echo "## ${{ inputs.comment-emoji }} ${{ inputs.comment-title }}" > plan-summary.md
-        echo "" >> plan-summary.md
-        echo "**Environment:** ${{ inputs.environment }}" >> plan-summary.md
-        echo "**Commit:** ${{ github.sha }}" >> plan-summary.md
-        echo "**Deployment:** ${{ inputs.deployment-type }}" >> plan-summary.md
-        echo "" >> plan-summary.md
+        set -e
 
-        # Add warning for production
-        if [ "${{ inputs.show-warning }}" = "true" ]; then
-          echo "⚠️ **This shows what will happen in production after merge and approval**" >> plan-summary.md
-          echo "" >> plan-summary.md
-        fi
-
-        # Check if there are changes
-        if terraform show -no-color plan.tfout | head -1 | grep -q "No changes"; then
-          echo "✅ **No changes** - Infrastructure matches configuration" >> plan-summary.md
+        # Set emoji based on environment
+        if [ "${{ inputs.environment }}" = "prod" ]; then
+          EMOJI="🚨"
+          ENV_NAME="Production"
         else
-          # Check for high-risk operations (only for production-like environments)
-          if [ "${{ inputs.environment }}" = "prod" ] || [ "${{ inputs.environment }}" = "production" ]; then
-            if terraform show -no-color plan.tfout | grep -E "(destroy|force-replace)" > /dev/null; then
-              echo "🔴 **HIGH RISK CHANGES DETECTED**" >> plan-summary.md
-              echo "This change includes resource destruction or replacement!" >> plan-summary.md
-              echo "" >> plan-summary.md
-            fi
+          EMOJI="🧪"
+          ENV_NAME="Development"
+        fi
+
+        echo "## ${EMOJI} ${ENV_NAME}" > plan-summary.md
+        echo "" >> plan-summary.md
+
+        # Check if plan file exists
+        if [ ! -f "plan.tfout" ]; then
+          echo "❌ Plan file not found - check plan generation" >> plan-summary.md
+          exit 0
+        fi
+
+        # Get plan output and check for changes
+        PLAN_OUTPUT=$(terraform show -no-color plan.tfout 2>/dev/null || echo "Error reading plan")
+
+        if echo "$PLAN_OUTPUT" | grep -q "No changes"; then
+          echo "✅ No changes detected" >> plan-summary.md
+        elif echo "$PLAN_OUTPUT" | grep -q "Error reading plan"; then
+          echo "❌ Error reading plan file" >> plan-summary.md
+        else
+          # Count changes
+          ADD_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "# .* will be created" || echo "0")
+          CHANGE_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "# .* will be updated" || echo "0")
+          DESTROY_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "# .* will be destroyed" || echo "0")
+
+          if [ "$DESTROY_COUNT" -gt "0" ] && [ "${{ inputs.environment }}" = "prod" ]; then
+            echo "🔴 **${ADD_COUNT}** add, **${CHANGE_COUNT}** change, **${DESTROY_COUNT}** destroy" >> plan-summary.md
+          else
+            echo "📝 **${ADD_COUNT}** add, **${CHANGE_COUNT}** change, **${DESTROY_COUNT}** destroy" >> plan-summary.md
           fi
-
-          echo "### Changes Preview:" >> plan-summary.md
-          echo '```hcl' >> plan-summary.md
-          terraform show -no-color plan.tfout | head -50 >> plan-summary.md
-          echo '```' >> plan-summary.md
         fi
 
-        # Add footer for production
-        if [ "${{ inputs.environment }}" = "prod" ] || [ "${{ inputs.environment }}" = "production" ]; then
-          echo "" >> plan-summary.md
-          echo "**Review carefully before approving production deployment!**" >> plan-summary.md
-        fi
+        echo "" >> plan-summary.md
+        echo "_Commit: ${GITHUB_SHA:0:7}_" >> plan-summary.md
       working-directory: ${{ inputs.working-directory }}
 
     - name: Comment on PR
@@ -107,32 +99,45 @@ runs:
         github-token: ${{ inputs.github-token }}
         script: |
           const fs = require('fs');
-          const plan = fs.readFileSync('${{ inputs.working-directory }}/plan-summary.md', 'utf8');
 
-          // Check for existing comment
-          const comments = await github.rest.issues.listComments({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-          });
+          try {
+            const plan = fs.readFileSync('${{ inputs.working-directory }}/plan-summary.md', 'utf8');
 
-          const existingComment = comments.data.find(comment =>
-            comment.user.type === 'Bot' &&
-            comment.body.includes('${{ inputs.comment-title }}')
-          );
-
-          if (existingComment) {
-            await github.rest.issues.updateComment({
-              comment_id: existingComment.id,
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: plan
             });
-          } else {
+
+            const existingComment = comments.data.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('${{ inputs.environment }}' === 'prod' ? 'Production' : 'Development')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                comment_id: existingComment.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: plan
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: plan
+              });
+            }
+          } catch (error) {
+            console.error('Error posting comment:', error);
+
+            // Post error comment as fallback
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: plan
+              body: `## ❌ ${{ inputs.environment === 'prod' ? 'Production' : 'Development' }} Plan Error\n\nFailed to generate plan summary. Check workflow logs for details.\n\n_Commit: ${context.sha.substring(0, 7)}_`
             });
           }
