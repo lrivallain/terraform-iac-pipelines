@@ -50,23 +50,33 @@ runs:
       with:
         terraform_version: ${{ inputs.terraform-version }}
 
-    - name: Wait for Azure token propagation
+    - name: Verify Azure Access
       shell: bash
       run: |
-        echo "Waiting for Azure token to propagate..."
-        sleep 10
+        echo "Testing Azure access..."
 
         # Test Azure CLI authentication
-        az account show
+        az account show > /dev/null
 
-        # Test Key Vault access (if exists)
-        echo "Testing Key Vault access..."
-        if az keyvault list --query "[?contains(name, 'webapp-${{ inputs.environment }}')]" -o tsv | head -1; then
-          KV_NAME=$(az keyvault list --query "[?contains(name, 'webapp-${{ inputs.environment }}')].name" -o tsv | head -1)
-          if [ ! -z "$KV_NAME" ]; then
-            echo "Testing access to Key Vault: $KV_NAME"
-            az keyvault secret list --vault-name "$KV_NAME" --query "length([*])" -o tsv || echo "Key Vault access test failed, continuing..."
-          fi
+        # Test Key Vault access with retry
+        KV_NAME=$(az keyvault list --query "[?contains(name, 'webapp-${{ inputs.environment }}')].name" -o tsv | head -1)
+
+        if [ ! -z "$KV_NAME" ]; then
+          echo "Testing Key Vault: $KV_NAME"
+
+          for i in {1..3}; do
+            if az keyvault secret list --vault-name "$KV_NAME" --max-results 1 > /dev/null 2>&1; then
+              echo "Key Vault access OK"
+              break
+            else
+              echo "Attempt $i/3 failed, waiting..."
+              sleep $((i * 5))
+              if [ $i -eq 3 ]; then
+                echo "Key Vault access failed after 3 attempts"
+                exit 1
+              fi
+            fi
+          done
         fi
 
     - name: Terraform Init with Backend

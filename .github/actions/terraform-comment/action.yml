@@ -46,7 +46,7 @@ runs:
         environment: ${{ inputs.environment }}
         storage-account-suffix: ${{ inputs.storage-account-suffix }}
 
-    - name: Generate Simple Plan Summary
+    - name: Generate Complete Plan Summary
       shell: bash
       run: |
         set -e
@@ -77,16 +77,38 @@ runs:
         elif echo "$PLAN_OUTPUT" | grep -q "Error reading plan"; then
           echo "❌ Error reading plan file" >> plan-summary.md
         else
-          # Count changes
+          # Count changes for summary
           ADD_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "# .* will be created" || echo "0")
           CHANGE_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "# .* will be updated" || echo "0")
           DESTROY_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "# .* will be destroyed" || echo "0")
 
+          # Summary line
           if [ "$DESTROY_COUNT" -gt "0" ] && [ "${{ inputs.environment }}" = "prod" ]; then
             echo "🔴 **${ADD_COUNT}** add, **${CHANGE_COUNT}** change, **${DESTROY_COUNT}** destroy" >> plan-summary.md
           else
             echo "📝 **${ADD_COUNT}** add, **${CHANGE_COUNT}** change, **${DESTROY_COUNT}** destroy" >> plan-summary.md
           fi
+
+          echo "" >> plan-summary.md
+
+          # Add collapsible section with full plan
+          echo '<details>' >> plan-summary.md
+          echo '<summary>📋 Click to view full plan details</summary>' >> plan-summary.md
+          echo '' >> plan-summary.md
+          echo '```terraform' >> plan-summary.md
+
+          # Limit output to prevent GitHub comment size limits (65536 chars)
+          # Show first 50KB of plan output
+          echo "$PLAN_OUTPUT" | head -c 50000 >> plan-summary.md
+
+          # Check if we truncated the output
+          if [ ${#PLAN_OUTPUT} -gt 50000 ]; then
+            echo "" >> plan-summary.md
+            echo "... (output truncated - see workflow logs for complete plan)" >> plan-summary.md
+          fi
+
+          echo '```' >> plan-summary.md
+          echo '</details>' >> plan-summary.md
         fi
 
         echo "" >> plan-summary.md
@@ -105,6 +127,15 @@ runs:
             const environment = '${{ inputs.environment }}';
             const envName = environment === 'prod' ? 'Production' : 'Development';
 
+            // Check GitHub comment size limit (65536 characters)
+            if (plan.length > 65000) {
+              console.log(`Plan comment is ${plan.length} characters, truncating to fit GitHub limits`);
+              const truncatedPlan = plan.substring(0, 65000) + '\n\n... (comment truncated - see workflow logs for complete plan)';
+              var finalPlan = truncatedPlan;
+            } else {
+              var finalPlan = plan;
+            }
+
             // Find existing comment
             const comments = await github.rest.issues.listComments({
               issue_number: context.issue.number,
@@ -122,15 +153,17 @@ runs:
                 comment_id: existingComment.id,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: plan
+                body: finalPlan
               });
+              console.log(`Updated existing comment for ${envName}`);
             } else {
               await github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: plan
+                body: finalPlan
               });
+              console.log(`Created new comment for ${envName}`);
             }
           } catch (error) {
             console.error('Error posting comment:', error);
