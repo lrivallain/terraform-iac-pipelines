@@ -88,7 +88,6 @@ jobs:
       with:
         working-directory: ${{ env.TF_WORKING_DIR }}
         environment: 'prod'
-        save-plan: ${{ github.event_name == 'push' && 'true' || 'false' }}
 
   # Auto-deploy to DEV on push to main
   deploy-dev:
