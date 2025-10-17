@@ -171,9 +171,6 @@ jobs:
     needs: [plan-dev]
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-    permissions:
-      pull-requests: write
-      contents: read
     steps:
     - name: Checkout
       uses: actions/checkout@v4
