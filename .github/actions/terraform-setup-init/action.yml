@@ -50,6 +50,25 @@ runs:
       with:
         terraform_version: ${{ inputs.terraform-version }}
 
+    - name: Wait for Azure token propagation
+      shell: bash
+      run: |
+        echo "Waiting for Azure token to propagate..."
+        sleep 10
+
+        # Test Azure CLI authentication
+        az account show
+
+        # Test Key Vault access (if exists)
+        echo "Testing Key Vault access..."
+        if az keyvault list --query "[?contains(name, 'webapp-${{ inputs.environment }}')]" -o tsv | head -1; then
+          KV_NAME=$(az keyvault list --query "[?contains(name, 'webapp-${{ inputs.environment }}')].name" -o tsv | head -1)
+          if [ ! -z "$KV_NAME" ]; then
+            echo "Testing access to Key Vault: $KV_NAME"
+            az keyvault secret list --vault-name "$KV_NAME" --query "length([*])" -o tsv || echo "Key Vault access test failed, continuing..."
+          fi
+        fi
+
     - name: Terraform Init with Backend
       shell: bash
       run: |
