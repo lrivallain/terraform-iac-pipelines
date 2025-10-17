@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Setup Terraform and Init for Dev
       uses: ./.github/actions/terraform-setup-init
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Setup Terraform and Init
       uses: ./.github/actions/terraform-setup-init
@@ -73,7 +73,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Setup Terraform and Init
       uses: ./.github/actions/terraform-setup-init
@@ -99,7 +99,7 @@ jobs:
     environment: development
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Setup Terraform and Init
       uses: ./.github/actions/terraform-setup-init
@@ -132,7 +132,7 @@ jobs:
     environment: production
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Pre-deployment notification
       run: |
@@ -173,7 +173,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Download Plan
       uses: actions/download-artifact@v4
@@ -210,6 +210,57 @@ jobs:
         script: |
           const fs = require('fs');
           const plan = fs.readFileSync('${{ env.TF_WORKING_DIR }}/plan-summary.md', 'utf8');
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: plan
+          });
+
+  comment-plan-prod:
+    needs: [plan-prod]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+
+    - name: Setup Terraform and Init for Prod Preview
+      uses: ./.github/actions/terraform-setup-init
+      with:
+        azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        environment: 'prod'
+        storage-account-suffix: ${{ vars.RANDOM_SUFFIX }}
+
+    - name: Plan Prod Environment (Preview Only)
+      uses: ./.github/actions/terraform-plan
+      with:
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        environment: 'prod'
+        save-plan: 'false'  # Don't save artifact
+
+    - name: Generate Production Preview
+      run: |
+        echo "## 🚨 Production Impact Preview" > prod-plan-summary.md
+        echo "" >> prod-plan-summary.md
+        echo "**⚠️ This shows what WILL happen in production when merged:**" >> prod-plan-summary.md
+        echo "" >> prod-plan-summary.md
+        echo "### Production Changes:" >> prod-plan-summary.md
+        echo '```hcl' >> prod-plan-summary.md
+        terraform show -no-color plan.tfout | head -50 >> prod-plan-summary.md
+        echo '```' >> prod-plan-summary.md
+      working-directory: ${{ env.TF_WORKING_DIR }}
+
+    - name: Comment Production Preview
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const plan = fs.readFileSync('${{ env.TF_WORKING_DIR }}/prod-plan-summary.md', 'utf8');
 
           github.rest.issues.createComment({
             issue_number: context.issue.number,
