@@ -7,9 +7,11 @@ on:
   pull_request:
     branches: [ main ]
 
+
 permissions:
-  id-token: write
-  contents: read
+  id-token: write       # Required for OIDC
+  contents: read        # Required for checkout
+  pull-requests: write  # Required for PR comments (if using comment-plan job)
 
 env:
   TF_WORKING_DIR: './terraform'
@@ -169,9 +171,6 @@ jobs:
     needs: [plan-dev]
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-    permissions:
-      pull-requests: write
-      contents: read
     steps:
     - name: Checkout
       uses: actions/checkout@v4
