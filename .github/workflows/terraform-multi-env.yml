@@ -4,12 +4,8 @@ name: 'Multi-Environment Terraform Deployment'
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'terraform/**'
   pull_request:
     branches: [ main ]
-    paths:
-      - 'terraform/**'
 
 permissions:
   id-token: write
