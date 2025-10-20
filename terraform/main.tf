@@ -243,7 +243,7 @@ resource "azurerm_mssql_database" "main" {
   }
 
   # Maintenance and performance
-  auto_pause_delay_in_minutes = local.environment_config.is_development ? 60 : null
+  auto_pause_delay_in_minutes = local.environment_config.is_development ? 60 : 120
   min_capacity                = local.environment_config.is_development ? 0.5 : 1
 
   # Threat detection policy
