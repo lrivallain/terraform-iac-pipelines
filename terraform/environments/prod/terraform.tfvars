@@ -1,7 +1,7 @@
 # terraform/environments/prod/terraform.tfvars
 project_name = "webapp"
 environment  = "prod"
-location     = "East US"
+location     = "East US 2"
 
 # App Service Configuration
 app_service_sku = "B1"
